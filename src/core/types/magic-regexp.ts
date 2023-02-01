@@ -1,3 +1,6 @@
+import { Flag } from '../flags'
+import { ResolveRegex } from './utils'
+
 const NamedGroupsS = Symbol('NamedGroups')
 const ValueS = Symbol('Value')
 const CapturedGroupsArrS = Symbol('CapturedGroupsArr')
@@ -28,13 +31,42 @@ export type MapToStringCapturedBy<Ar extends (string | undefined)[]> = {
   [K in keyof Ar]: Ar[K] extends string ? StringCapturedBy<Ar[K]> | undefined : undefined
 }
 
-export type MagicRegExpMatchArray<T extends MagicRegExp<string, string, any[], string>> = Omit<
-  RegExpMatchArray,
-  'groups'
-> & {
-  groups: Record<ExtractGroups<T>, string | undefined>
-} & {
-  [index: number | string | symbol]: never
-} & (T extends MagicRegExp<string, string, infer CapturedGroupsArr, string>
-    ? readonly [string | undefined, ...MapToStringCapturedBy<CapturedGroupsArr>]
-    : {})
+export type MagicRegExpMatchArray<
+  T extends MagicRegExp<string, string, any[], string>,
+  Input extends string,
+  MatchResults = T extends MagicRegExp<`/${infer Regexp}/${'' | Flag}`, any, any, string>
+    ? string extends Input
+      ? ResolveRegex<Regexp, Input>['StringMatchStringUnionTuple']
+      : ResolveRegex<Regexp, Input>['LiteralMatchStringUnionTuple']
+    : never
+> = MatchResults extends never
+  ? null // `null` when no match
+  : Readonly<
+      MatchResults & {
+        index?: number // property of RegExpMatchArray
+        input: Input // property of RegExpMatchArray
+        groups: Record<ExtractGroups<T>, string | undefined>
+        [index: number]: never
+      }
+    >
+
+// Readonly<
+//     {
+//       [K in Exclude<keyof MatchResults, number>]: MatchResults[K]
+//     } & {
+//       index?: number // property of RegExpMatchArray
+//       input: Input // property of RegExpMatchArray
+//       groups: Record<ExtractGroups<T>, string | undefined>
+//     }
+//   >
+
+// export type MagicRegExpMatchArray<T extends MagicRegExp<string, string, any[], string>> = Omit<
+//   RegExpMatchArray,
+//   'groups'
+// > & {
+//   groups: Record<ExtractGroups<T>, string | undefined>
+// } & {
+//   [index: number | string | symbol]: never
+// } & (T extends MagicRegExp<string, string, infer CapturedGroupsArr, string>
+//     ? readonly [string | undefined, ...MapToStringCapturedBy<CapturedGroupsArr>]
+//     : {})

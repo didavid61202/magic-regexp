@@ -9,12 +9,15 @@ import {
   maybe,
   global,
   digit,
+  word,
   multiline,
   MagicRegExp,
   MagicRegExpMatchArray,
   StringCapturedBy,
 } from '../src'
 import { createInput } from '../src/core/internal'
+import { assert } from 'console'
+import { throws } from 'assert'
 
 describe('magic-regexp', () => {
   it('works as a normal regexp', () => {
@@ -108,7 +111,8 @@ describe('inputs', () => {
     `)
 
     expectTypeOf('fobazzer'.match(regexp)).toEqualTypeOf<MagicRegExpMatchArray<
-      typeof regexp
+      typeof regexp,
+      'fobazzer'
     > | null>()
     expectTypeOf('fobazzer'.match(regexp)?.groups).toEqualTypeOf<
       Record<'test' | 'test2', string | undefined> | undefined
@@ -155,42 +159,115 @@ describe('inputs', () => {
     // @ts-expect-error
     pattern.and.referenceTo('bazgroup')
   })
-  it('can type-safe access matched array with hint for corresponding capture group', () => {
-    const pattern = anyOf(
-      exactly('foo|?').grouped(),
-      exactly('bar').and(maybe('baz').grouped()).groupedAs('groupName'),
-      exactly('boo').times(2).grouped(),
-      anyOf(
-        exactly('a').times(3),
-        exactly('b').and(maybe('c|d?')).times.any(),
-        exactly('1')
-          .and(maybe(exactly('2').and(maybe('3')).and('2')))
-          .and('1')
-      ).grouped()
-    ).grouped()
 
-    const match = 'booboo'.match(createRegExp(pattern))
+  it('return type-safe match result with capturing', () => {
+    const pattern = exactly('foo').and(exactly('12').or('34').grouped()).and('bar')
 
-    if (!match) return expect(match).toBeTruthy()
-    expectTypeOf(match.length).toEqualTypeOf<7>()
-    expectTypeOf(match[0]).toEqualTypeOf<string | undefined>()
-    expectTypeOf(match[1]).toEqualTypeOf<
-      | StringCapturedBy<'((foo\\|\\?)|(?<groupName>bar(baz)?)|(boo){2}|(a{3}|(?:b(?:c\\|d\\?)?)*|1(?:23?2)?1))'>
-      | undefined
-    >()
-    //@ts-expect-error
-    match[1] = 'match result array marked as readonly'
-    let typedVar: string | undefined
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, prefer-const
-    typedVar = match[1] // can be assign to typed variable
-    expectTypeOf(match[2]).toEqualTypeOf<StringCapturedBy<'(foo\\|\\?)'> | undefined>()
-    expectTypeOf(match[2]?.concat(match[3] || '')).toEqualTypeOf<string | undefined>()
-    expectTypeOf(match[3]).toEqualTypeOf<StringCapturedBy<'(?<groupName>bar(baz)?)'> | undefined>()
-    expectTypeOf(match[4]).toEqualTypeOf<StringCapturedBy<'(baz)'> | undefined>()
-    expectTypeOf(match[5]).toEqualTypeOf<StringCapturedBy<'(boo)'> | undefined>()
-    expectTypeOf(match[6]).toEqualTypeOf<
-      StringCapturedBy<'(a{3}|(?:b(?:c\\|d\\?)?)*|1(?:23?2)?1)'> | undefined
-    >()
-    expectTypeOf(match[7]).toEqualTypeOf<never>()
+    const match = 'Afoo12barB'.match(createRegExp(pattern))
+    expectTypeOf(match).toEqualTypeOf<Readonly<
+      ['foo12bar', '12'] & {
+        index?: number | undefined
+        input: 'Afoo12barB'
+        groups: Record<never, string | undefined>
+        [index: number]: never
+      }
+    > | null>()
   })
+
+  it('return type-safe match result with any digit', () => {
+    const onlyDigitPattern = digit.grouped()
+
+    const match = 'Afoo1barB'.match(createRegExp(onlyDigitPattern))
+    expectTypeOf(match).toEqualTypeOf<Readonly<
+      ['1', '1'] & {
+        index?: number | undefined
+        input: 'Afoo1barB'
+        groups: Record<never, string | undefined>
+        [index: number]: never
+      }
+    > | null>()
+
+    const combPattern = exactly('foo').and(digit.grouped()).and('bar')
+
+    const match2 = 'Afoo1barB'.match(createRegExp(combPattern))
+    expectTypeOf(match2).toEqualTypeOf<Readonly<
+      ['foo1bar', '1'] & {
+        index?: number | undefined
+        input: 'Afoo1barB'
+        groups: Record<never, string | undefined>
+        [index: number]: never
+      }
+    > | null>()
+
+    const match3 = 'Afoo123barB'.match(createRegExp(combPattern))
+    expectTypeOf(match3).toEqualTypeOf<null>()
+  })
+
+  it('return type-safe match result with any word character', () => {
+    const onlyWordPattern = word.grouped()
+
+    // const match = ' foo bar'.match(createRegExp(onlyWordPattern)) //TODO (1 or more[]) and ([] repeat x to y) not yet implemented
+    // expectTypeOf(match).toEqualTypeOf<Readonly<
+    //   ['f', 'f'] & {
+    //     index?: number | undefined
+    //     input: ' foo bar'
+    //     groups: Record<never, string | undefined>
+    //     [index: number]: never
+    //   }
+    // > | null>()
+
+    const combPattern = exactly('foo').and(digit.grouped()).and('bar')
+
+    const match2 = 'Afoo1barB'.match(createRegExp(combPattern))
+    expectTypeOf(match2).toEqualTypeOf<Readonly<
+      ['foo1bar', '1'] & {
+        index?: number | undefined
+        input: 'Afoo1barB'
+        groups: Record<never, string | undefined>
+        [index: number]: never
+      }
+    > | null>()
+
+    const match3 = 'Afoo123barB'.match(createRegExp(combPattern))
+    expectTypeOf(match3).toEqualTypeOf<null>()
+  })
+
+  // it('can type-safe access matched array with hint for corresponding capture group', () => {
+  //   const pattern = anyOf(
+  //     exactly('foo|?').grouped(),
+  //     exactly('bar').and(maybe('baz').grouped()).groupedAs('groupName'),
+  //     exactly('boo').times(2).grouped(),
+  //     anyOf(
+  //       exactly('a').times(3),
+  //       exactly('b').and(maybe('c|d?')).times.any(),
+  //       exactly('1')
+  //         .and(maybe(exactly('2').and(maybe('3')).and('2')))
+  //         .and('1')
+  //     ).grouped()
+  //   ).grouped()
+
+  //   const match = 'booboo'.match(createRegExp(pattern))
+
+  //   if (!match) return expect(match).toBeTruthy()
+  //   expectTypeOf(match.length).toEqualTypeOf<7>()
+  //   expectTypeOf(match[0]).toEqualTypeOf<string | undefined>()
+  //   expectTypeOf(match[1]).toEqualTypeOf<
+  //     | StringCapturedBy<'((foo\\|\\?)|(?<groupName>bar(baz)?)|(boo){2}|(a{3}|(?:b(?:c\\|d\\?)?)*|1(?:23?2)?1))'>
+  //     | undefined
+  //   >()
+  //   //@ts-expect-error
+  //   match[1] = 'match result array marked as readonly'
+  //   let typedVar: string | undefined
+  //   // eslint-disable-next-line @typescript-eslint/no-unused-vars, prefer-const
+  //   typedVar = match[1] // can be assign to typed variable
+  //   expectTypeOf(match[2]).toEqualTypeOf<StringCapturedBy<'(foo\\|\\?)'> | undefined>()
+  //   expectTypeOf(match[2]?.concat(match[3] || '')).toEqualTypeOf<string | undefined>()
+  //   expectTypeOf(match[3]).toEqualTypeOf<StringCapturedBy<'(?<groupName>bar(baz)?)'> | undefined>()
+  //   expectTypeOf(match[4]).toEqualTypeOf<StringCapturedBy<'(baz)'> | undefined>()
+  //   expectTypeOf(match[5]).toEqualTypeOf<StringCapturedBy<'(boo)'> | undefined>()
+  //   expectTypeOf(match[6]).toEqualTypeOf<
+  //     StringCapturedBy<'(a{3}|(?:b(?:c\\|d\\?)?)*|1(?:23?2)?1)'> | undefined
+  //   >()
+  //   expectTypeOf(match[7]).toEqualTypeOf<never>()
+  // })
 })

@@ -36,9 +36,13 @@ export * from './core/types/magic-regexp'
 // Add additional overload to global String object types to allow for typed capturing groups
 declare global {
   interface String {
-    match<R extends MagicRegExp<string, string, (string | undefined)[], Exclude<Flag, 'g'>>>(
+    match<
+      R extends MagicRegExp<string, string, (string | undefined)[], Exclude<Flag, 'g'>>,
+      MatchingString extends string
+    >(
+      this: MatchingString,
       regexp: R
-    ): MagicRegExpMatchArray<R> | null
+    ): MagicRegExpMatchArray<R, MatchingString> | null
     match<R extends MagicRegExp<string, string, (string | undefined)[], 'g'>>(
       regexp: R
     ): string[] | null
@@ -50,9 +54,13 @@ declare global {
       regexp: R
     ): never
 
-    matchAll<R extends MagicRegExp<string, string, (string | undefined)[], string>>(
+    matchAll<
+      R extends MagicRegExp<string, string, (string | undefined)[], string>,
+      MatchingString extends string
+    >(
+      this: MatchingString,
       regexp: R
-    ): IterableIterator<MagicRegExpMatchArray<R>>
+    ): IterableIterator<MagicRegExpMatchArray<R, MatchingString>>
 
     /** @deprecated String.replaceAll requires global flag to be set. */
     replaceAll<R extends MagicRegExp<string, string, (string | undefined)[], never>>(
